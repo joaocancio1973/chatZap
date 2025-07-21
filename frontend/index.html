@@ -1,240 +1,233 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>ChatZAP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* ESTILOS GLOBAIS */
-        body { background-color: #f8f9fa; }
-        #contactsList:empty::before {
-            content: "Nenhum contato encontrado";
-            color: #999;
-            font-style: italic;
-        }
-        .loading { opacity: 0.6; pointer-events: none; }
-        .text-success { color: #28a745; }
-        .text-danger { color: #dc3545; }
-    </style>
-</head>
-<body>
-    <div class="container mt-5">
-        <!-- CABEÇALHO -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>ChatZAP 📞</h1>
-            <button id="logoutBtn" class="btn btn-outline-danger">Sair</button>
-        </div>
-
-        <!-- FORMULÁRIO DE CONTATOS -->
-        <div class="card mt-3">
-            <div class="card-body">
-                <h5 id="formTitle">Adicionar Contato</h5>
-                <form id="contactForm">
-                    <input type="hidden" id="contactId">
-                    <div class="mb-3">
-                        <label class="form-label">Nome</label>
-                        <input type="text" id="name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Telefone</label>
-                        <input type="text" id="phone" class="form-control" required>
-                    </div>
-                    <button type="submit" id="submitBtn" class="btn btn-primary">Salvar</button>
-                    <button type="button" id="cancelEdit" class="btn btn-secondary ms-2" style="display:none;">
-                        Cancelar
-                    </button>
-                    <div id="formFeedback" class="mt-2"></div>
-                </form>
-            </div>
-        </div>
-
-        <!-- LISTA DE CONTATOS -->
-        <div class="card mt-4">
-            <div class="card-body">
-                <h5>Meus Contatos</h5>
-                <div id="loadingContacts" class="spinner-border spinner-border-sm" role="status" style="display:none;">
-                    <span class="visually-hidden">Carregando...</span>
-                </div>
-                <ul id="contactsList" class="list-group mt-2"></ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCRIPTS -->
-    <script>
-        // =============================================
-        // CONFIGURAÇÕES GLOBAIS
-        // =============================================
-        const API_BASE_URL = 'http://localhost:5001';
-        let isLoading = false;
-
-        // =============================================
-        // FUNÇÕES ÚTEIS
-        // =============================================
-        function showFeedback(message, type = 'success') {
-            const feedback = document.getElementById('formFeedback');
-            feedback.textContent = message;
-            feedback.className = `text-${type}`;
-            setTimeout(() => feedback.textContent = '', 3000);
-        }
-
-        function getAuthHeader() {
-            const token = localStorage.getItem('chatToken');
-            if (!token) {
-                window.location.href = 'login.html';
-                return {};
+    <head>
+        <title>ChatZAP</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            /* ESTILOS GLOBAIS */
+            body { background-color: #f8f9fa; }
+            #contactsList:empty::before {
+                content: "Nenhum contato encontrado";
+                color: #999;
+                font-style: italic;
             }
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
+            .loading { opacity: 0.6; pointer-events: none; }
+            .text-success { color: #28a745; }
+            .text-danger { color: #dc3545; }
+        </style>
+    </head>
+    <body>
+        <div class="container mt-5">
+            <!-- CABEÇALHO -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>ChatZAP 📞</h1>
+                <button id="logoutBtn" class="btn btn-outline-danger">Sair</button>
+            </div>
 
-        // =============================================
-        // FUNÇÕES PRINCIPAIS
-        // =============================================
-        async function loadContacts() {
-            try {
-                isLoading = true;
-                document.getElementById('loadingContacts').style.display = 'inline-block';
-                const contactsList = document.getElementById('contactsList');
-                contactsList.innerHTML = '';
-
-                const response = await fetch(`${API_BASE_URL}/api/contacts`, {
-                    headers: getAuthHeader()
-                });
-
-                if (!response.ok) throw new Error('Erro ao carregar contatos');
-                
-                const contacts = await response.json();
-                
-                contactsList.innerHTML = contacts.map(contact => `
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        ${contact.name} - ${contact.phone}
-                        <div>
-                            <button onclick="editContact(${contact.id}, '${escapeHtml(contact.name)}', '${escapeHtml(contact.phone)}')" 
-                                class="btn btn-sm btn-warning">Editar</button>
-                            <button onclick="deleteContact(${contact.id})" 
-                                class="btn btn-sm btn-danger ms-2">Excluir</button>
+            <!-- FORMULÁRIO DE CONTATOS -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 id="formTitle">Adicionar Contato</h5>
+                    <form id="contactForm">
+                        <input type="hidden" id="contactId">
+                        <div class="mb-3">
+                            <label class="form-label">Nome</label>
+                            <input type="text" id="name" class="form-control" required>
                         </div>
-                    </li>
-                `).join('');
+                        <div class="mb-3">
+                            <label class="form-label">Telefone</label>
+                            <input type="text" id="phone" class="form-control" required>
+                        </div>
+                        <button type="submit" id="submitBtn" class="btn btn-primary">Salvar</button>
+                        <button type="button" id="cancelEdit" class="btn btn-secondary ms-2" style="display:none;">
+                            Cancelar
+                        </button>
+                        <div id="formFeedback" class="mt-2"></div>
+                    </form>
+                </div>
+            </div>
 
-            } catch (error) {
-                console.error("Erro:", error);
-                contactsList.innerHTML = `
-                    <li class="list-group-item text-danger">
-                        ❌ Erro: ${error.message}
-                    </li>
-                `;
-            } finally {
-                isLoading = false;
-                document.getElementById('loadingContacts').style.display = 'none';
-            }
-        }
+            <!-- LISTA DE CONTATOS -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5>Meus Contatos</h5>
+                    <div id="loadingContacts" class="spinner-border spinner-border-sm" role="status" style="display:none;">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <ul id="contactsList" class="list-group mt-2"></ul>
+                </div>
+            </div>
+        </div>
 
-        function escapeHtml(text) {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
+        <!-- SCRIPTS -->
+        <script>
+            // =============================================
+            // CONFIGURAÇÕES GLOBAIS
+            // =============================================
+            const API_BASE_URL = 'http://localhost:5001';
+            let isLoading = false;
 
-        // =============================================
-        // EVENT LISTENERS
-        // =============================================
-        document.addEventListener('DOMContentLoaded', () => {
-            // Verifica se está logado ao carregar a página
-            if (!localStorage.getItem('chatToken')) {
-                window.location.href = 'login.html';
-            } else {
-                loadContacts();
-            }
-        });
-
-        document.getElementById('contactForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (isLoading) return;
-
-            const id = document.getElementById('contactId').value;
-            const name = document.getElementById('name').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-
-            if (!name || !phone) {
-                showFeedback('Preencha todos os campos', 'danger');
-                return;
+            // =============================================
+            // FUNÇÕES ÚTEIS
+            // =============================================
+            function showFeedback(message, type = 'success') {
+                const feedback = document.getElementById('formFeedback');
+                feedback.textContent = message;
+                feedback.className = `text-${type}`;
+                setTimeout(() => feedback.textContent = '', 3000);
             }
 
-            try {
-                isLoading = true;
-                document.getElementById('submitBtn').disabled = true;
+            function escapeHtml(text) {
+                return text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
 
-                const url = id ? `${API_BASE_URL}/api/contacts/${id}` : `${API_BASE_URL}/api/contacts`;
-                const method = id ? 'PUT' : 'POST';
+            // =============================================
+            // FUNÇÃO LOADCONTACTS (PRESERVADA)
+            // =============================================
+            async function loadContacts() {
+                try {
+                    isLoading = true;
+                    document.getElementById('loadingContacts').style.display = 'inline-block';
+                    const contactsList = document.getElementById('contactsList');
+                    contactsList.innerHTML = '';
 
-                const response = await fetch(url, {
-                    method,
-                    headers: getAuthHeader(),
-                    body: JSON.stringify({ name, phone })
-                });
+                    const response = await fetch(`${API_BASE_URL}/api/contacts`, {
+                        credentials: 'include'
+                    });
 
-                if (!response.ok) throw new Error(id ? 'Falha ao atualizar' : 'Falha ao criar');
+                    if (!response.ok) throw new Error('Erro ao carregar contatos');
+                    
+                    const data = await response.json();
+                    
+                    // Verificação segura dos dados
+                    if (!data.contacts || !Array.isArray(data.contacts)) {
+                        throw new Error('Formato de dados inválido');
+                    }
 
-                showFeedback(id ? 'Contato atualizado!' : 'Contato adicionado!');
+                    contactsList.innerHTML = data.contacts.map(contact => `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            ${contact.name} - ${contact.phone}
+                            <div>
+                                <button onclick="editContact(${contact.id}, '${escapeHtml(contact.name)}', '${escapeHtml(contact.phone)}')" 
+                                    class="btn btn-sm btn-warning">Editar</button>
+                                <button onclick="deleteContact(${contact.id})" 
+                                    class="btn btn-sm btn-danger ms-2">Excluir</button>
+                            </div>
+                        </li>
+                    `).join('');
+
+                } catch (error) {
+                    console.error("Erro:", error);
+                    contactsList.innerHTML = `
+                        <li class="list-group-item text-danger">
+                            ❌ Erro: ${error.message}
+                        </li>
+                    `;
+                } finally {
+                    isLoading = false;
+                    document.getElementById('loadingContacts').style.display = 'none';
+                }
+            }
+
+            // =============================================
+            // EVENT LISTENERS
+            // =============================================
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!localStorage.getItem('chatToken')) {
+                    window.location.href = 'login.html';
+                } else {
+                    loadContacts();
+                }
+            });
+
+            document.getElementById('contactForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (isLoading) return;
+
+                const id = document.getElementById('contactId').value;
+                const name = document.getElementById('name').value.trim();
+                const phone = document.getElementById('phone').value.trim();
+
+                if (!name || !phone) {
+                    showFeedback('Preencha todos os campos', 'danger');
+                    return;
+                }
+
+                try {
+                    isLoading = true;
+                    document.getElementById('submitBtn').disabled = true;
+
+                    const url = id ? `${API_BASE_URL}/api/contacts/${id}` : `${API_BASE_URL}/api/contacts`;
+                    const method = id ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ name, phone })
+                    });
+
+                    if (!response.ok) throw new Error(id ? 'Falha ao atualizar' : 'Falha ao criar');
+
+                    showFeedback(id ? 'Contato atualizado!' : 'Contato adicionado!');
+                    document.getElementById('contactForm').reset();
+                    document.getElementById('cancelEdit').style.display = 'none';
+                    document.getElementById('formTitle').textContent = 'Adicionar Contato';
+                    loadContacts();
+
+                } catch (error) {
+                    showFeedback(`Erro: ${error.message}`, 'danger');
+                } finally {
+                    isLoading = false;
+                    document.getElementById('submitBtn').disabled = false;
+                }
+            });
+
+            document.getElementById('cancelEdit').addEventListener('click', () => {
                 document.getElementById('contactForm').reset();
-                document.getElementById('cancelEdit').style.display = 'none';
                 document.getElementById('formTitle').textContent = 'Adicionar Contato';
-                loadContacts();
+                document.getElementById('cancelEdit').style.display = 'none';
+                showFeedback('Edição cancelada', 'info');
+            });
 
-            } catch (error) {
-                showFeedback(`Erro: ${error.message}`, 'danger');
-            } finally {
-                isLoading = false;
-                document.getElementById('submitBtn').disabled = false;
-            }
-        });
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                localStorage.removeItem('chatToken');
+                window.location.href = 'login.html';
+            });
 
-        document.getElementById('cancelEdit').addEventListener('click', () => {
-            document.getElementById('contactForm').reset();
-            document.getElementById('formTitle').textContent = 'Adicionar Contato';
-            document.getElementById('cancelEdit').style.display = 'none';
-            showFeedback('Edição cancelada', 'info');
-        });
+            // =============================================
+            // FUNÇÕES GLOBAIS
+            // =============================================
+            window.deleteContact = async function(id) {
+                if (!confirm('Tem certeza que deseja excluir este contato?')) return;
 
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('chatToken');
-            window.location.href = 'login.html';
-        });
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
 
-        // =============================================
-        // FUNÇÕES GLOBAIS (usadas nos botões)
-        // =============================================
-        window.deleteContact = async function(id) {
-            if (!confirm('Tem certeza que deseja excluir este contato?')) return;
+                    if (!response.ok) throw new Error('Falha ao excluir');
+                    
+                    showFeedback('Contato excluído com sucesso!');
+                    loadContacts();
+                } catch (error) {
+                    showFeedback(`Erro: ${error.message}`, 'danger');
+                }
+            };
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
-                });
-
-                if (!response.ok) throw new Error('Falha ao excluir');
-                
-                showFeedback('Contato excluído com sucesso!');
-                loadContacts();
-            } catch (error) {
-                showFeedback(`Erro: ${error.message}`, 'danger');
-            }
-        };
-
-        window.editContact = function(id, name, phone) {
-            document.getElementById('contactId').value = id;
-            document.getElementById('name').value = name;
-            document.getElementById('phone').value = phone;
-            document.getElementById('formTitle').textContent = 'Editar Contato';
-            document.getElementById('cancelEdit').style.display = 'block';
-        };
-    </script>
-</body>
+            window.editContact = function(id, name, phone) {
+                document.getElementById('contactId').value = id;
+                document.getElementById('name').value = name;
+                document.getElementById('phone').value = phone;
+                document.getElementById('formTitle').textContent = 'Editar Contato';
+                document.getElementById('cancelEdit').style.display = 'block';
+            };
+        </script>
+    </body>
 </html>
