@@ -10,6 +10,8 @@ const pool = require('./database.js');
 const authenticate = require('./middlewares/auth');
 const cors = require('cors');
 const authRouter = require('./routes/authRoutes.js');
+const registerOnly = require('./routes/registerOnly');
+app.use('/auth', registerOnly); // Rota ficará /auth/register-temp
 
 // =============================================
 // 1. CONFIGURAÇÃO INICIAL (Middlewares Globais)
@@ -20,6 +22,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/auth', registerOnly);
 
 // =============================================
 // 2. SESSÃO SEGURA (Login Persistente)
